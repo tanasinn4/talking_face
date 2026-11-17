@@ -1,0 +1,258 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ずんだもん口パクテスト</title>
+<style>
+  body {
+    margin: 0;
+    padding: 20px;
+    background: #20252b;
+    color: white;
+    font-family: sans-serif;
+    text-align: center;
+  }
+
+  h2 { color: #9de5a5; }
+
+  #character {
+    width: 260px;
+    height: 320px;
+    margin: 20px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #character img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .face {
+    font-size: 180px;
+    transition: transform 0.08s;
+  }
+
+  #status {
+    font-size: 20px;
+    color: #9de5a5;
+    margin: 15px;
+  }
+
+  button {
+    padding: 12px 24px;
+    margin: 8px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    background: #65b875;
+    color: white;
+  }
+
+  input[type=range] { width: 80%; }
+
+  .meter {
+    width: 80%;
+    height: 16px;
+    margin: 10px auto;
+    background: #444;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  #bar {
+    height: 100%;
+    width: 0%;
+    background: #75d98b;
+    transition: width 0.05s;
+  }
+
+  .settings {
+    margin: 20px auto;
+    padding: 15px;
+    max-width: 400px;
+    background: #303840;
+    border-radius: 12px;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>ずんだもん口パクテスト</h2>
+
+<div id="character">
+  <div class="face" id="face">😐</div>
+</div>
+
+<div id="status">停止中</div>
+
+<div class="meter">
+  <div id="bar"></div>
+</div>
+
+<div class="settings">
+  <p>音量の反応閾値</p>
+  <input type="range" id="threshold"
+         min="1" max="30" value="8">
+  <p id="thresholdValue">8</p>
+
+  <button onclick="startMic()">マイク開始</button>
+  <button onclick="stopMic()">停止</button>
+
+  <hr>
+
+  <p>口を閉じた画像</p>
+  <input type="file" id="closedFile" accept="image/*">
+
+  <p>口を開いた画像</p>
+  <input type="file" id="openFile" accept="image/*">
+</div>
+
+<script>
+let audioContext;
+let analyser;
+let microphone;
+let stream;
+let animationId;
+
+let closedImage = null;
+let openImage = null;
+
+let isTalking = false;
+let lastSoundTime = 0;
+
+const face = document.getElementById("face");
+const status = document.getElementById("status");
+const bar = document.getElementById("bar");
+const threshold = document.getElementById("threshold");
+
+// 画像読み込み
+function loadImage(inputId, callback) {
+  document.getElementById(inputId)
+    .addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+
+      img.onload = () => {
+        callback(img);
+        URL.revokeObjectURL(url);
+      };
+
+      img.src = url;
+    });
+}
+
+loadImage("closedFile", img => {
+  closedImage = img;
+  updateFace();
+});
+
+loadImage("openFile", img => {
+  openImage = img;
+  updateFace();
+});
+
+// 画像または絵文字を表示
+function updateFace() {
+  if (closedImage && openImage) {
+    const img = isTalking ? openImage : closedImage;
+    face.innerHTML = "";
+    face.appendChild(img);
+  } else {
+    face.textContent = isTalking ? "😮" : "😐";
+  }
+}
+
+threshold.addEventListener("input", () => {
+  document.getElementById("thresholdValue").textContent =
+    threshold.value;
+});
+
+// マイク開始
+async function startMic() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: true
+    });
+
+    audioContext = new AudioContext();
+
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
+
+    microphone = audioContext.createMediaStreamSource(stream);
+    microphone.connect(analyser);
+
+    status.textContent = "音声検知中";
+    detectSound();
+
+  } catch (error) {
+    status.textContent = "マイクを使用できません: " + error.message;
+  }
+}
+
+// 音量検知
+function detectSound() {
+  const data = new Uint8Array(analyser.fftSize);
+
+  analyser.getByteTimeDomainData(data);
+
+  let sum = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const value = (data[i] - 128) / 128;
+    sum += value * value;
+  }
+
+  const rms = Math.sqrt(sum / data.length);
+  const volume = rms * 100;
+
+  bar.style.width = Math.min(volume * 3, 100) + "%";
+
+  const limit = Number(threshold.value);
+
+  if (volume > limit) {
+    isTalking = true;
+    lastSoundTime = performance.now();
+  } else if (performance.now() - lastSoundTime > 180) {
+    isTalking = false;
+  }
+
+  updateFace();
+
+  status.textContent = isTalking ? "おしゃべり中！" : "待機中";
+
+  animationId = requestAnimationFrame(detectSound);
+}
+
+// 停止
+function stopMic() {
+  cancelAnimationFrame(animationId);
+
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+
+  isTalking = false;
+  bar.style.width = "0%";
+  status.textContent = "停止中";
+  updateFace();
+}
+</script>
+
+</body>
+</html>
