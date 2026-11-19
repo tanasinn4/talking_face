@@ -12,7 +12,7 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: #fff;
+      background: #000;
       color: #fff;
       font-family: sans-serif;
       -webkit-user-select: none;
@@ -22,7 +22,7 @@
     #screen {
       position: fixed;
       inset: 0;
-      background: #000 url("background.jpg") center center / contain no-repeat;
+      background: #fff url("background.jpg") center center / contain no-repeat;
     }
 
     #character {
@@ -116,11 +116,6 @@
       word-break: break-word;
     }
 
-    input[type=range] {
-      width: 100%;
-      cursor: pointer;
-    }
-
     .panel-btn {
       padding: 10px 16px;
       margin: 4px;
@@ -165,7 +160,7 @@
     <div class="face" id="face">😐</div>
   </div>
 
-  <button type="button" id="toggleSettingsBtn">　</button>
+  <button type="button" id="toggleSettingsBtn"> </button>
 
   <aside id="settingsPanel" aria-label="表示・操作設定">
     <div id="status">待機中</div>
@@ -178,12 +173,6 @@
     <div>
       <button type="button" class="panel-btn sub" id="fullscreenBtn">全画面切替</button>
     </div>
-
-    <hr>
-
-    <p>音量の反応閾値</p>
-    <input type="range" id="threshold" min="1" max="30" value="8">
-    <p id="thresholdValue">8</p>
 
     <hr>
 
@@ -233,8 +222,6 @@
     const character = document.getElementById("character");
     const statusEl = document.getElementById("status");
     const leftArea = document.getElementById("leftArea");
-    const threshold = document.getElementById("threshold");
-    const thresholdValue = document.getElementById("thresholdValue");
     const toggleSettingsBtn = document.getElementById("toggleSettingsBtn");
     const settingsPanel = document.getElementById("settingsPanel");
 
@@ -423,110 +410,3 @@
         if (current > 0) loadAndPlay(current - 1);
         return;
       }
-
-      if (!wasMoved) {
-        togglePlayback();
-      }
-    });
-
-    window.addEventListener("pointercancel", e => {
-      if (e.pointerId === activePointerId) resetGesture();
-    });
-
-    window.addEventListener("blur", resetGesture);
-
-    document.addEventListener("contextmenu", event => {
-      if (!event.target.closest("#settingsPanel")) event.preventDefault();
-    });
-    document.addEventListener("gesturestart", event => event.preventDefault());
-
-    // 設定ボタン
-    toggleSettingsBtn.addEventListener("pointerup", e => {
-      e.preventDefault();
-      e.stopPropagation();
-      settingsPanel.classList.toggle("open");
-    });
-
-    settingsPanel.addEventListener("pointerdown", e => e.stopPropagation());
-    settingsPanel.addEventListener("pointerup", e => e.stopPropagation());
-
-    async function toggleFullscreen() {
-      try {
-        if (!document.fullscreenElement) {
-          await document.documentElement.requestFullscreen();
-        } else {
-          await document.exitFullscreen();
-        }
-      } catch (_) {
-        statusEl.textContent = "全画面非対応またはブロックされました";
-      }
-    }
-
-    document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
-
-    threshold.addEventListener("input", () => {
-      thresholdValue.textContent = threshold.value;
-    });
-
-    function createImageElement(src, onLoaded, onError) {
-      const img = new Image();
-      img.onload = () => onLoaded(img);
-      if (onError) img.onerror = onError;
-      img.src = src;
-    }
-
-    if (DEFAULT_CLOSED_IMAGE) {
-      createImageElement(
-        DEFAULT_CLOSED_IMAGE,
-        img => {
-          closedImage = img;
-          updateFace();
-        },
-        () => {
-          closedImage = null;
-          updateFace();
-        }
-      );
-    }
-    if (DEFAULT_OPEN_IMAGE) {
-      createImageElement(
-        DEFAULT_OPEN_IMAGE,
-        img => {
-          openImage = img;
-          updateFace();
-        },
-        () => {
-          openImage = null;
-          updateFace();
-        }
-      );
-    }
-
-    function bindFileInput(inputId, onReady) {
-      document.getElementById(inputId).addEventListener("change", e => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const url = URL.createObjectURL(file);
-        createImageElement(url, img => {
-          onReady(img);
-          URL.revokeObjectURL(url);
-        });
-      });
-    }
-
-    bindFileInput("closedFile", img => {
-      closedImage = img;
-      updateFace();
-    });
-
-    bindFileInput("openFile", img => {
-      openImage = img;
-      updateFace();
-    });
-
-    updateFace();
-    updateStatus();
-  </script>
-</body>
-</html>
