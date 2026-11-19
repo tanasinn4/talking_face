@@ -1,258 +1,486 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Talking Face</title>
-<style>
-  body {
-    margin: 0;
-    padding: 20px;
-    background: #20252b;
-    color: white;
-    font-family: sans-serif;
-    text-align: center;
-  }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>MP3＆長押し口パクプレイヤー</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font-family: sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+    }
 
-  h2 { color: #9de5a5; }
+    #screen {
+      position: fixed;
+      inset: 0;
+      background: #000 url("background.jpg") center center / contain no-repeat;
+    }
 
-  #character {
-    width: 260px;
-    height: 320px;
-    margin: 20px auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+    #character {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+      z-index: 5;
+    }
 
-  #character img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-  }
+    #character img {
+      max-width: 80%;
+      max-height: 80%;
+      object-fit: contain;
+    }
 
-  .face {
-    font-size: 180px;
-    transition: transform 0.08s;
-  }
+    .face {
+      font-size: 120px;
+      line-height: 1;
+      color: #fff;
+    }
 
-  #status {
-    font-size: 20px;
-    color: #9de5a5;
-    margin: 15px;
-  }
+    /* 画面左1/3の操作領域 */
+    #leftArea {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 33.3333%;
+      z-index: 10;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-  button {
-    padding: 12px 24px;
-    margin: 8px;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    background: #65b875;
-    color: white;
-  }
+    /* Androidステータスバー被り回避のため下に配置 */
+    #toggleSettingsBtn {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 72px);
+      right: 16px;
+      z-index: 50;
+      padding: 12px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      border-radius: 10px;
+      background: #20252b;
+      color: #9de5a5;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
 
-  input[type=range] { width: 80%; }
+    #settingsPanel {
+      display: none;
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 126px);
+      right: 16px;
+      z-index: 50;
+      width: min(340px, calc(100vw - 32px));
+      max-height: calc(100vh - env(safe-area-inset-top, 0px) - 144px);
+      overflow-y: auto;
+      padding: 16px;
+      box-sizing: border-box;
+      background: #303840;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+      touch-action: auto;
+    }
 
-  .meter {
-    width: 80%;
-    height: 16px;
-    margin: 10px auto;
-    background: #444;
-    border-radius: 10px;
-    overflow: hidden;
-  }
+    #settingsPanel.open {
+      display: block;
+    }
 
-  #bar {
-    height: 100%;
-    width: 0%;
-    background: #75d98b;
-    transition: width 0.05s;
-  }
+    #settingsPanel p {
+      margin: 8px 0 4px;
+      font-size: 14px;
+    }
 
-  .settings {
-    margin: 20px auto;
-    padding: 15px;
-    max-width: 400px;
-    background: #303840;
-    border-radius: 12px;
-  }
-</style>
+    #status {
+      font-size: 15px;
+      color: #9de5a5;
+      margin: 8px 0;
+      word-break: break-word;
+    }
+
+    input[type=range] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .panel-btn {
+      padding: 10px 16px;
+      margin: 4px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      background: #65b875;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .panel-btn.sub {
+      background: #475569;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      margin: 12px 0;
+    }
+
+    input[type=file] {
+      width: 100%;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .guide {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin: 6px 0;
+    }
+  </style>
 </head>
-
 <body>
+  <main id="screen" aria-label="口パクプレイヤー">
+    <div id="leftArea"></div>
+  </main>
 
-<h2>Talking face</h2>
+  <div id="character">
+    <div class="face" id="face">😐</div>
+  </div>
 
-<div id="character">
-  <div class="face" id="face">😐</div>
-</div>
+  <button type="button" id="toggleSettingsBtn">⚙</button>
 
-<div id="status">停止中</div>
+  <aside id="settingsPanel" aria-label="表示・操作設定">
+    <div id="status">待機中</div>
+    <div class="guide">
+      【左1/3エリア】<br>
+      上スワイプ：次の音 ／ 下スワイプ：前の音<br>
+      タップ：再生・停止 ／ 長押し：口パク
+    </div>
 
-<div class="meter">
-  <div id="bar"></div>
-</div>
+    <div>
+      <button type="button" class="panel-btn sub" id="fullscreenBtn">全画面切替</button>
+    </div>
 
-<div class="settings">
-  <p>音量の反応閾値</p>
-  <input type="range" id="threshold"
-         min="1" max="30" value="8">
-  <p id="thresholdValue">8</p>
+    <hr>
 
-  <button onclick="startMic()">マイク開始</button>
-  <button onclick="stopMic()">停止</button>
+    <p>口を閉じた画像</p>
+    <input type="file" id="closedFile" accept="image/*">
 
-  <hr>
+    <p>口を開いた画像</p>
+    <input type="file" id="openFile" accept="image/*">
+  </aside>
 
-  <p>口を閉じた画像</p>
-  <input type="file" id="closedFile" accept="image/*">
+  <script>
+    const speeches = [
+      "audio/01_opening.mp3",
+      "audio/02_kanpai.mp3",
+      "audio/03_toast.mp3"
+    ];
 
-  <p>口を開いた画像</p>
-  <input type="file" id="openFile" accept="image/*">
-</div>
+    const DEFAULT_CLOSED_IMAGE = null;
+    const DEFAULT_OPEN_IMAGE = null;
 
-<script>
-let audioContext;
-let analyser;
-let microphone;
-let stream;
-let animationId;
+    const MOUTH_INTERVAL_MS = 140;
+    const SWIPE_THRESHOLD_PX = 40;
+    const LONG_PRESS_DELAY_MS = 220;
 
-let closedImage = null;
-let openImage = null;
+    let current = 0;
+    const player = new Audio();
+    player.preload = "auto";
+    let wakeLock = null;
 
-let isTalking = false;
-let lastSoundTime = 0;
+    let isMp3Playing = false;
+    let isLongPressing = false;
+    let mouthOpen = false;
+    let mouthTimer = null;
 
-const face = document.getElementById("face");
-const status = document.getElementById("status");
-const bar = document.getElementById("bar");
-const threshold = document.getElementById("threshold");
+    let closedImage = null;
+    let openImage = null;
 
-// 画像読み込み
-function loadImage(inputId, callback) {
-  document.getElementById(inputId)
-    .addEventListener("change", function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+    const face = document.getElementById("face");
+    const statusEl = document.getElementById("status");
+    const leftArea = document.getElementById("leftArea");
+    const threshold = document.getElementById("threshold");
+    const toggleSettingsBtn = document.getElementById("toggleSettingsBtn");
+    const settingsPanel = document.getElementById("settingsPanel");
 
-      const url = URL.createObjectURL(file);
+    function updateFace() {
+      const shouldOpen = (isMp3Playing || isLongPressing) && mouthOpen;
+      if (closedImage && openImage) {
+        const targetImg = shouldOpen ? openImage : closedImage;
+        if (face.firstChild !== targetImg) {
+          face.innerHTML = "";
+          face.appendChild(targetImg);
+        }
+      } else {
+        face.textContent = shouldOpen ? "😮" : "😐";
+      }
+    }
+
+    function updateStatus() {
+      if (isLongPressing && isMp3Playing) {
+        statusEl.textContent = "長押し口パク + MP3再生中";
+      } else if (isLongPressing) {
+        statusEl.textContent = "長押し口パク中";
+      } else if (isMp3Playing) {
+        statusEl.textContent = `MP3再生中 (${current + 1}/${speeches.length})`;
+      } else {
+        statusEl.textContent = "待機中";
+      }
+    }
+
+    function syncMouthLoop() {
+      const active = isMp3Playing || isLongPressing;
+      if (active) {
+        if (!mouthTimer) {
+          mouthOpen = true;
+          updateFace();
+          mouthTimer = setInterval(() => {
+            if (!(isMp3Playing || isLongPressing)) {
+              clearInterval(mouthTimer);
+              mouthTimer = null;
+              mouthOpen = false;
+              updateFace();
+              return;
+            }
+            mouthOpen = !mouthOpen;
+            updateFace();
+          }, MOUTH_INTERVAL_MS);
+        }
+      } else {
+        if (mouthTimer) {
+          clearInterval(mouthTimer);
+          mouthTimer = null;
+        }
+        mouthOpen = false;
+        updateFace();
+      }
+      updateStatus();
+    }
+
+    async function requestWakeLock() {
+      try {
+        if ("wakeLock" in navigator && !wakeLock) {
+          wakeLock = await navigator.wakeLock.request("screen");
+          wakeLock.addEventListener("release", () => { wakeLock = null; });
+        }
+      } catch (_) {}
+    }
+
+    function loadAndPlay(index) {
+      if (!speeches.length) return;
+      current = Math.max(0, Math.min(index, speeches.length - 1));
+      player.pause();
+      player.src = speeches[current];
+      player.currentTime = 0;
+      player.play().catch(err => {
+        statusEl.textContent = `再生エラー: ${speeches[current]} (${err.name})`;
+      });
+      requestWakeLock();
+    }
+
+    function togglePlayback() {
+      if (!speeches.length) return;
+      if (!player.src) {
+        loadAndPlay(current);
+      } else if (player.paused) {
+        player.play().catch(err => {
+          statusEl.textContent = `再生エラー: ${err.name}`;
+        });
+        requestWakeLock();
+      } else {
+        player.pause();
+      }
+    }
+
+    player.addEventListener("playing", () => {
+      isMp3Playing = true;
+      syncMouthLoop();
+    });
+    player.addEventListener("pause", () => {
+      isMp3Playing = false;
+      syncMouthLoop();
+    });
+    player.addEventListener("ended", () => {
+      isMp3Playing = false;
+      syncMouthLoop();
+    });
+    player.addEventListener("error", () => {
+      isMp3Playing = false;
+      syncMouthLoop();
+      statusEl.textContent = `ファイル読込失敗: ${speeches[current]}`;
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && isMp3Playing) {
+        requestWakeLock();
+      }
+    });
+
+    // 左1/3エリア：タップ・上下スワイプ・長押し
+    let activePointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let moved = false;
+    let longPressTimer = null;
+
+    function resetGesture() {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      if (isLongPressing) {
+        isLongPressing = false;
+        syncMouthLoop();
+      }
+      activePointerId = null;
+      moved = false;
+    }
+
+    leftArea.addEventListener("pointerdown", e => {
+      if (activePointerId !== null) return;
+      activePointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      moved = false;
+
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        if (activePointerId !== null && !moved) {
+          isLongPressing = true;
+          syncMouthLoop();
+        }
+      }, LONG_PRESS_DELAY_MS);
+    });
+
+    window.addEventListener("pointermove", e => {
+      if (e.pointerId !== activePointerId) return;
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) > 14) {
+        moved = true;
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      }
+    });
+
+    window.addEventListener("pointerup", e => {
+      if (e.pointerId !== activePointerId) return;
+      const dy = e.clientY - startY;
+      const wasLongPressing = isLongPressing;
+      const wasMoved = moved;
+
+      resetGesture();
+
+      if (wasLongPressing) return;
+
+      if (dy <= -SWIPE_THRESHOLD_PX) {
+        if (current < speeches.length - 1) loadAndPlay(current + 1);
+        return;
+      }
+
+      if (dy >= SWIPE_THRESHOLD_PX) {
+        if (current > 0) loadAndPlay(current - 1);
+        return;
+      }
+
+      if (!wasMoved) {
+        togglePlayback();
+      }
+    });
+
+    window.addEventListener("pointercancel", e => {
+      if (e.pointerId === activePointerId) resetGesture();
+    });
+
+    window.addEventListener("blur", resetGesture);
+
+    document.addEventListener("contextmenu", event => {
+      if (!event.target.closest("#settingsPanel")) event.preventDefault();
+    });
+    document.addEventListener("gesturestart", event => event.preventDefault());
+
+    // 設定ボタン
+    toggleSettingsBtn.addEventListener("pointerup", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      settingsPanel.classList.toggle("open");
+    });
+
+    settingsPanel.addEventListener("pointerdown", e => e.stopPropagation());
+    settingsPanel.addEventListener("pointerup", e => e.stopPropagation());
+
+    async function toggleFullscreen() {
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        } else {
+          await document.exitFullscreen();
+        }
+      } catch (_) {
+        statusEl.textContent = "全画面非対応またはブロックされました";
+      }
+    }
+
+    document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
+
+    function createImageElement(src, onLoaded) {
       const img = new Image();
+      img.onload = () => onLoaded(img);
+      img.src = src;
+    }
 
-      img.onload = () => {
-        callback(img);
-        URL.revokeObjectURL(url);
-      };
+    if (DEFAULT_CLOSED_IMAGE) {
+      createImageElement(DEFAULT_CLOSED_IMAGE, img => {
+        closedImage = img;
+        updateFace();
+      });
+    }
+    if (DEFAULT_OPEN_IMAGE) {
+      createImageElement(DEFAULT_OPEN_IMAGE, img => {
+        openImage = img;
+        updateFace();
+      });
+    }
 
-      img.src = url;
-    });
-}
+    function bindFileInput(inputId, onReady) {
+      document.getElementById(inputId).addEventListener("change", e => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-loadImage("closedFile", img => {
-  closedImage = img;
-  updateFace();
-});
+        const url = URL.createObjectURL(file);
+        createImageElement(url, img => {
+          onReady(img);
+          URL.revokeObjectURL(url);
+        });
+      });
+    }
 
-loadImage("openFile", img => {
-  openImage = img;
-  updateFace();
-});
-
-// 画像または絵文字を表示
-function updateFace() {
-  if (closedImage && openImage) {
-    const img = isTalking ? openImage : closedImage;
-    face.innerHTML = "";
-    face.appendChild(img);
-  } else {
-    face.textContent = isTalking ? "😮" : "😐";
-  }
-}
-
-threshold.addEventListener("input", () => {
-  document.getElementById("thresholdValue").textContent =
-    threshold.value;
-});
-
-// マイク開始
-async function startMic() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: true
+    bindFileInput("closedFile", img => {
+      closedImage = img;
+      updateFace();
     });
 
-    audioContext = new AudioContext();
+    bindFileInput("openFile", img => {
+      openImage = img;
+      updateFace();
+    });
 
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 1024;
-
-    microphone = audioContext.createMediaStreamSource(stream);
-    microphone.connect(analyser);
-
-    status.textContent = "音声検知中";
-    detectSound();
-
-  } catch (error) {
-    status.textContent = "マイクを使用できません: " + error.message;
-  }
-}
-
-// 音量検知
-function detectSound() {
-  const data = new Uint8Array(analyser.fftSize);
-
-  analyser.getByteTimeDomainData(data);
-
-  let sum = 0;
-
-  for (let i = 0; i < data.length; i++) {
-    const value = (data[i] - 128) / 128;
-    sum += value * value;
-  }
-
-  const rms = Math.sqrt(sum / data.length);
-  const volume = rms * 100;
-
-  bar.style.width = Math.min(volume * 3, 100) + "%";
-
-  const limit = Number(threshold.value);
-
-  if (volume > limit) {
-    isTalking = true;
-    lastSoundTime = performance.now();
-  } else if (performance.now() - lastSoundTime > 180) {
-    isTalking = false;
-  }
-
-  updateFace();
-
-  status.textContent = isTalking ? "おしゃべり中！" : "待機中";
-
-  animationId = requestAnimationFrame(detectSound);
-}
-
-// 停止
-function stopMic() {
-  cancelAnimationFrame(animationId);
-
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-    stream = null;
-  }
-
-  if (audioContext) {
-    audioContext.close();
-    audioContext = null;
-  }
-
-  isTalking = false;
-  bar.style.width = "0%";
-  status.textContent = "停止中";
-  updateFace();
-}
-</script>
-
+    updateFace();
+    updateStatus();
+  </script>
 </body>
 </html>
