@@ -28,6 +28,8 @@
     #character {
       position: fixed;
       inset: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -36,6 +38,8 @@
     }
 
     #character img {
+      display: block;
+      margin: auto;
       max-width: 80%;
       max-height: 80%;
       object-fit: contain;
@@ -44,6 +48,7 @@
     .face {
       font-size: 120px;
       line-height: 1;
+      text-align: center;
       color: #fff;
     }
 
@@ -160,7 +165,7 @@
     <div class="face" id="face">😐</div>
   </div>
 
-  <button type="button" id="toggleSettingsBtn">⚙</button>
+  <button type="button" id="toggleSettingsBtn">設定</button>
 
   <aside id="settingsPanel" aria-label="表示・操作設定">
     <div id="status">待機中</div>
@@ -173,6 +178,12 @@
     <div>
       <button type="button" class="panel-btn sub" id="fullscreenBtn">全画面切替</button>
     </div>
+
+    <hr>
+
+    <p>音量の反応閾値</p>
+    <input type="range" id="threshold" min="1" max="30" value="8">
+    <p id="thresholdValue">8</p>
 
     <hr>
 
@@ -190,8 +201,9 @@
       "audio/03_toast.mp3"
     ];
 
-    const DEFAULT_CLOSED_IMAGE = null;
-    const DEFAULT_OPEN_IMAGE = null;
+    // デフォルトの口閉じ・口開き画像（image フォルダ）
+    const DEFAULT_CLOSED_IMAGE = "image/closed.png";
+    const DEFAULT_OPEN_IMAGE = "image/open.png";
 
     const MOUTH_INTERVAL_MS = 140;
     const SWIPE_THRESHOLD_PX = 40;
@@ -210,23 +222,30 @@
     let closedImage = null;
     let openImage = null;
 
-    const face = document.getElementById("face");
+    const character = document.getElementById("character");
     const statusEl = document.getElementById("status");
     const leftArea = document.getElementById("leftArea");
     const threshold = document.getElementById("threshold");
+    const thresholdValue = document.getElementById("thresholdValue");
     const toggleSettingsBtn = document.getElementById("toggleSettingsBtn");
     const settingsPanel = document.getElementById("settingsPanel");
 
     function updateFace() {
       const shouldOpen = (isMp3Playing || isLongPressing) && mouthOpen;
-      if (closedImage && openImage) {
-        const targetImg = shouldOpen ? openImage : closedImage;
-        if (face.firstChild !== targetImg) {
-          face.innerHTML = "";
-          face.appendChild(targetImg);
+      const targetImg = shouldOpen ? openImage : closedImage;
+
+      if (targetImg) {
+        if (character.firstElementChild !== targetImg) {
+          character.replaceChildren(targetImg);
         }
       } else {
-        face.textContent = shouldOpen ? "😮" : "😐";
+        let faceEl = character.querySelector(".face");
+        if (!faceEl) {
+          faceEl = document.createElement("div");
+          faceEl.className = "face";
+          character.replaceChildren(faceEl);
+        }
+        faceEl.textContent = shouldOpen ? "😮" : "😐";
       }
     }
 
@@ -437,23 +456,42 @@
 
     document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
 
-    function createImageElement(src, onLoaded) {
+    threshold.addEventListener("input", () => {
+      thresholdValue.textContent = threshold.value;
+    });
+
+    function createImageElement(src, onLoaded, onError) {
       const img = new Image();
       img.onload = () => onLoaded(img);
+      if (onError) img.onerror = onError;
       img.src = src;
     }
 
     if (DEFAULT_CLOSED_IMAGE) {
-      createImageElement(DEFAULT_CLOSED_IMAGE, img => {
-        closedImage = img;
-        updateFace();
-      });
+      createImageElement(
+        DEFAULT_CLOSED_IMAGE,
+        img => {
+          closedImage = img;
+          updateFace();
+        },
+        () => {
+          closedImage = null;
+          updateFace();
+        }
+      );
     }
     if (DEFAULT_OPEN_IMAGE) {
-      createImageElement(DEFAULT_OPEN_IMAGE, img => {
-        openImage = img;
-        updateFace();
-      });
+      createImageElement(
+        DEFAULT_OPEN_IMAGE,
+        img => {
+          openImage = img;
+          updateFace();
+        },
+        () => {
+          openImage = null;
+          updateFace();
+        }
+      );
     }
 
     function bindFileInput(inputId, onReady) {
